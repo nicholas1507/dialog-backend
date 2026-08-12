@@ -6,7 +6,10 @@ const cors = require('cors');
 
 app.use(express.json());
 app.use(express.urlencoded({extended: true}));
-app.use(cors());
+app.use(cors({
+    origin: 'https://dialog-translator.netlify.app',
+  credentials: true
+}));
 
 const routes = require('./routes');
 app.use(routes);
