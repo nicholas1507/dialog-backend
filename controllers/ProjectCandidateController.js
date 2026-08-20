@@ -129,7 +129,14 @@ class ProjectCandidateController{
             if(!translator) return res.status(404).json({error: "Translator not found!"});
             const projectInvitation = await ProjectCandidate.findAll({
                 include: [
-                    {model: Project, as: "project"}
+                    {model: Project, as: "project",include: [
+                        {
+                            model: User,
+                            as: "client", 
+                            attributes: ["id", "name", "email"]
+                        }
+                    ]},
+                    
                 ],
                 where: {translatorId: translator.id, type: "INVITATION", status:"PENDING"}
             });
