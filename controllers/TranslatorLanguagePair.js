@@ -1,7 +1,7 @@
 const {TranslatorLanguagePair, Translator, Language} = require('../models');
 
 class TranslatorLanguagePairController{
-    static async getTranslatorLanguagePair(req,res){
+    static async getTranslatorLanguagePair(req,res,next){
         try{
             const pairs = await TranslatorLanguagePair.findAll({
                 include:[
@@ -23,10 +23,10 @@ class TranslatorLanguagePairController{
             });
             res.status(200).json(pairs);
         }catch(error){
-            res.status(500).json(error);
+            next(error);
         }
     }
-    static async createTranslatorLanguagePair(req,res){
+    static async createTranslatorLanguagePair(req,res,next){
         try{
             const userId = req.user.id;
             const {sourceLanguageId,targetLanguageId} = req.body;
@@ -54,10 +54,10 @@ class TranslatorLanguagePairController{
             });
             res.status(201).json(pair);
         }catch(error){
-            res.status(500).json(error);
+            next(error);
         }
     }
-    static async getTranslatorLanguagePairById(req,res){
+    static async getTranslatorLanguagePairById(req,res,next){
         try{
             const {id} = req.params;
 
@@ -80,10 +80,10 @@ class TranslatorLanguagePairController{
 
             res.status(200).json(pair);
         }catch(error){
-            res.status(500).json(error);
+            next(error);
         }
     }
-    static async deleteTranslatorLanguagePair(req,res){
+    static async deleteTranslatorLanguagePair(req,res,next){
         try{
             const userId = req.user.id;
             const {id} = req.params;
@@ -114,7 +114,7 @@ class TranslatorLanguagePairController{
             });
 
         }catch(error){
-            res.status(500).json(error);
+            next(error);
         }
     }
 }

@@ -1,8 +1,9 @@
 const { Op } = require('sequelize');
 const {Translator, Project,Specialization,User, Profile, TranslatorLanguagePair, ProjectCandidate,Language, sequelize} = require('../models');
+const createError = require('../utils/createError');
 
 class TranslatorController{
-    static async getTranslators(req,res){
+    static async getTranslators(req,res,next){
         try{
             const page = parseInt(req.query.page) || 1;
             const limit = parseInt(req.query.limit) || 10;
@@ -41,22 +42,21 @@ class TranslatorController{
                 }
             });
         }catch(error){
-            console.error(error);
-            res.status(500).json(error);
+            next(error);
         }
     }
-    static async createTranslator(req,res){
+    static async createTranslator(req,res,next){
         try{
             const result = await sequelize.transaction(async(t) => {
                 const userId = req.user.id;
                 const {experience,ratePerProject,cvURL,languagePairs,specializationIds} = req.body;
                 const checkTranslator = await Translator.findOne({where: {userId},transaction: t});
                 if(checkTranslator){
-                    throw new Error("Data translator has already been filled!");
+                    throw createError("Data translator has already been filled!",400);
                 }
                 const specializations = await Specialization.findAll({where: {id: specializationIds}, transaction: t});
                 if(specializations.length !== specializationIds.length){
-                    throw new Error("Invalid Specialization")
+                    throw createError("Invalid Specialization",400)
                 }
                 const translator = await Translator.create({
                     userId,
@@ -67,7 +67,7 @@ class TranslatorController{
                 await translator.setSpecializations(specializationIds,{transaction: t});
                 let translatorPairs = []
                 if(!Array.isArray(languagePairs) || languagePairs.length === 0){
-                    throw new Error("language pairs not found!");
+                    throw createError("language pairs not found!",404);
                 }
                 languagePairs.forEach(pair => {
                     translatorPairs.push({
@@ -81,11 +81,10 @@ class TranslatorController{
             })
             res.status(201).json(result);
         }catch(error){
-            console.error(error);
-            res.status(500).json(error);
+            next(error);
         }
     }
-    static async getTranslatorById(req,res){
+    static async getTranslatorById(req,res,next){
         try{
             const {id} = req.params;
             const translator = await Translator.findByPk(id,{
@@ -103,7 +102,7 @@ class TranslatorController{
             if(!translator) return res.status(404).json({error: `Translator not found!`});
             res.status(200).json(translator);
         }catch(error){
-            res.status(500).json(error);
+            next(error);
         }
     }
     static async updateMyTranslator(req, res) {
@@ -111,10 +110,9 @@ class TranslatorController{
             const result = await sequelize.transaction(async (t) => {
                 const userId = req.user.id;
                 const { experience, ratePerProject, cvURL, languagePairs, specializationIds } = req.body;
-
                 const translator = await Translator.findOne({ where: { userId }, transaction: t });
                 if (!translator) {
-                    throw new Error("NOT_FOUND");
+                    throw createError("TRANSLATOR NOT FOUND",404);
                 }
 
                 await translator.update({ experience, ratePerProject, cvURL }, { transaction: t });
@@ -162,13 +160,10 @@ class TranslatorController{
 
             return res.status(200).json({ message: "Translator updated successfully", data: result });
         } catch (error) {
-            if (error.message === "NOT_FOUND") {
-                return res.status(404).json({ message: "Translator not found!" });
-            }
-            return res.status(500).json({ message: error.message || "Internal Server Error" });
+            next(error);
         }
     }
-    static async getMyTranslator(req,res){
+    static async getMyTranslator(req,res,next){
         try{
             const userId = req.user.id;
             const translator = await Translator.findOne({
@@ -186,11 +181,10 @@ class TranslatorController{
             if(!translator) return res.status(404).json({error: "Translator not found!"});
             res.status(200).json(translator);
         }catch(error){
-            console.error(error)
-            res.status(500).json(error);
+            next(error);
         }
     }
-    static async deleteTranslator(req,res){
+    static async deleteTranslator(req,res,next){
     try{
         const {id} = req.params;
         const translator = await Translator.findByPk(id);
@@ -209,7 +203,7 @@ class TranslatorController{
         await translator.destroy();
         res.status(200).json({message: `Translator id ${id} successfully deleted!`});
     }catch(error){
-        res.status(500).json(error);
+        next(error);
     }
 }
 }

@@ -1,7 +1,8 @@
 const {ProjectDocument, Project,Translator,sequelize} = require('../models');
+const createError = require('../utils/createError');
 
 class ProjectDocumentController{
-    static async translatorProjectDocument(req,res){
+    static async translatorProjectDocument(req,res,next){
         try{
             const result = await sequelize.transaction(async(t) => {
                 const userId = req.user.id;
@@ -9,17 +10,17 @@ class ProjectDocumentController{
                 const {projectId} = req.params;
                 const translator = await Translator.findOne({where: {userId},transaction:t});
                 if(!translator){
-                    throw new Error("You're not translator!");
+                    throw createError("You're not translator!",401);
                 }
                 const project = await Project.findByPk(projectId,{transaction: t});
                 if(!project){
-                    throw new Error("Project not found!");
+                    throw createError("Project not found!",404);
                 }
                 if(project.translatorId !== translator.id){
-                    throw new Error("The project isnt belong to you!");
+                    throw createError("The project isnt belong to you!",400);
                 }
                 if(!req.file){
-                    throw new Error("No file uploaded!");
+                    throw createError("No file uploaded!",400);
                 }
                 const filePublicId = req.file.filename;
                 const fileURL = req.file.path;
@@ -37,10 +38,7 @@ class ProjectDocumentController{
             });
             res.status(201).json(result);
         }catch(error){
-            console.error(error);
-            res.status(500).json({
-                error: error.message
-            })
+            next(error);
         }
     }
 }

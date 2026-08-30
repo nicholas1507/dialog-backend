@@ -1,0 +1,1 @@
+module.exports = (message,statusCode = 400) => Object.assign(new Error(message),{statusCode});

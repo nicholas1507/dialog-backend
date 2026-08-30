@@ -2,7 +2,7 @@ const { Op } = require('sequelize');
 const {Specialization} = require('../models');
 
 class SpecializationController{
-    static async getSpecialization(req,res){
+    static async getSpecialization(req,res,next){
         try{
             const page = parseInt(req.query.page) || 1;
             const limit = parseInt(req.query.limit) || 10;
@@ -26,29 +26,29 @@ class SpecializationController{
                 }
             });
         }catch(error){
-            res.status(500).json(error);
+            next(error);
         }
     }
-    static async createSpecialization(req,res){
+    static async createSpecialization(req,res,next){
         try{
             const {name} = req.body;
             const specialization = await Specialization.create({name});
             res.status(201).json(specialization);
         }catch(error){
-            res.status(500).json(error);
+            next(error);
         }
     }
-    static async getSpecializationById(req,res){
+    static async getSpecializationById(req,res,next){
         try{
             const {id} = req.params;
             const specialization = await Specialization.findByPk(id);
             if(!specialization) return res.status(404).json({error: "Specialization not found!"});
             res.status(200).json(specialization);
         }catch(error){
-            res.status(500).json(error);
+            next(error);
         }
     }
-    static async updateSpecialization(req,res){
+    static async updateSpecialization(req,res,next){
         try{
             const {id} = req.params;
             const {name} = req.body;
@@ -56,10 +56,10 @@ class SpecializationController{
             if(specialization[0] === 0) return res.status(400).json({error: `Failed to update specialization!`});
             res.status(200).json({message: "Specialization updated successfully!"});
         }catch(error){
-            res.status(500).json(error);
+            next(error);
         }
     }
-    static async deleteSpecialization(req,res){
+    static async deleteSpecialization(req,res,next){
         try{
             const {id} = req.params;
             const specialization = await Specialization.findByPk(id);
@@ -71,7 +71,7 @@ class SpecializationController{
             await specialization.destroy();
             res.status(200).json({message: `Specialization id ${id} successfully deleted!`});
         }catch(error){
-            res.status(500).json(error);
+            next(error);
         }
     }
 }

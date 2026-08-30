@@ -3,7 +3,7 @@ const {decryptPwd} = require('../utils/bcrypt');
 const {User,Role} = require('../models')
 class UserController{
 
-    static async getAllUsers(req,res){
+    static async getAllUsers(req,res,next){
         try{
             const page = parseInt(req.query.page) || 1;
             const limit = parseInt(req.query.limit) || 10;
@@ -30,12 +30,12 @@ class UserController{
                     totalPage: Math.ceil(total/limit)
                 }
             });
-        }catch(err){
-            res.status(500).json(err);
+        }catch(error){
+            next(error);
         }
     }
 
-    static async getMyUser(req,res){
+    static async getMyUser(req,res,next){
         try{
             const userId = req.user.id;
             if(!userId) return res.status(403).json({error: `UserId isn't available!`})
@@ -46,12 +46,12 @@ class UserController{
                 name: userData.name,
                 email: userData.email,
             });
-        }catch(err){
-            res.status(500).json(err);
+        }catch(error){
+            next(error);
         }
     }
 
-    static async createUser(req,res){
+    static async createUser(req,res,next){
         try{
             const {name,email,password,confirmationPassword,roleIds} = req.body;
             const checkEmail = await User.findOne({where: {email: email}});
@@ -67,13 +67,11 @@ class UserController{
             await user.setRoles([roleIds]);
             res.status(201).json(user);
         }catch(error){
-            res.status(500).json({
-                error: error.message
-            })
+            next(error);
         }
     }
 
-    static async getUserById(req,res){
+    static async getUserById(req,res,next){
         try{
             const id = req.params.id;
             const user = await User.findByPk(id,{
@@ -82,12 +80,12 @@ class UserController{
             });
             if(!user) return res.status(404).json({error: `User id ${id} is not avalaible`});
             res.status(200).json(user);
-        }catch(err){
-            res.status(500).json(err);
+        }catch(error){
+            next(error);
         }
     }
 
-    static async updateUser(req,res){
+    static async updateUser(req,res,next){
         try{
             const id = req.params.id;
             const {name, email, password,confirmationPassword, roleIds} = req.body;
@@ -115,7 +113,7 @@ class UserController{
         }
     }
 
-    static async updateMyUser(req,res){
+    static async updateMyUser(req,res,next){
         try{
             const userId = req.user.id;
             const {name, password,confirmPassword,prevPassword} = req.body;
@@ -132,12 +130,12 @@ class UserController{
             };
             await user.save();
             res.status(200).json(user);
-        }catch(err){
-            res.status(500).json(err);
+        }catch(error){
+            next(error);
         }
     }
 
-    static async deleteUser(req,res){
+    static async deleteUser(req,res,next){
         try{
             const id = req.params.id;
             const user = await User.findByPk(id);
@@ -148,8 +146,8 @@ class UserController{
             }
             await user.destroy();
             res.status(200).json({message: `User with id ${id} has been successfully deleted!`});
-        }catch(err){
-            res.status(500).json(err);
+        }catch(error){
+            next(error);
         }
     }
 

@@ -2,19 +2,19 @@ const {Role, User} = require('../models');
 
 class RoleController{
 
-    static async getAllRoles(req,res){
+    static async getAllRoles(req,res,next){
         try{
             const roles = await Role.findAll({
                 include: [{model: User, as: 'users', attributes:['id','name','email']}],
                 order: [['id', "ASC"]]
             });
             res.status(200).json(roles);
-        }catch(err){
-            res.status(500).json(err);
+        }catch(error){
+            next(error);
         }
     }
 
-    static async getRoleById(req,res){
+    static async getRoleById(req,res,next){
         try{
             const id = req.params.id;
             const role = await Role.findByPk(id,{
@@ -22,23 +22,23 @@ class RoleController{
             });
             if(!role) return res.status(404).json({error: `Role not found!`});
             res.status(200).json(role)
-        }catch(err){
-            res.status(500).json(err);
+        }catch(error){
+            next(error);
         }
     }
 
-    static async createRole(req,res){
+    static async createRole(req,res,next){
         try{
             const {name,description} = req.body;
             if(!name) return res.status(400).json({error: `Role name is required!   `})
             const role = await Role.create({name,description})
             res.status(200).json(role);
-        }catch(err){
-            res.status(500).json(err);
+        }catch(error){
+            next(error);
         }
     }
 
-    static async updateRole(req,res){
+    static async updateRole(req,res,next){
         try{
             const id = req.params.id;
             const {name,description} = req.body;
@@ -49,12 +49,12 @@ class RoleController{
             role.description = description;
             await role.save();
             res.status(200).json(role);
-        }catch(err){
-            res.status(500).json(err);
+        }catch(error){
+            next(error);
         }
     }
 
-    static async deleteRole(req,res){
+    static async deleteRole(req,res,next){
         try{
             const id = req.params.id;
             const role = await Role.findByPk(id);
@@ -70,8 +70,8 @@ class RoleController{
             }
             await role.destroy();
             res.status(200).json({message: `Role with id ${id} has been deleted!`});
-        }catch(err){
-            res.status(500).json(err);
+        }catch(error){
+            next(error);
         }
     }
 

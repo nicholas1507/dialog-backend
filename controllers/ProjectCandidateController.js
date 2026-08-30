@@ -1,18 +1,19 @@
 const { Op } = require('sequelize');
 const {User,Role,ProjectCandidate, Project, Translator, sequelize} = require('../models');
+const createError = require('../utils/createError');
 
 class ProjectCandidateController{
     static async getOpenProject(projectId,transaction){
         const project = await Project.findByPk(projectId,{transaction});
         if(!project){
-            throw new Error("Project not found!");
+            throw createError("Project not found!",404);
         }
         if(project.status !== "OPEN"){
-            throw new Error("Project is not Open!");
+            throw createError("Project is not Open!",400);
         }
         return project;
     }
-    static async createApplication(req,res){
+    static async createApplication(req,res,next){
         try{
             const result = await sequelize.transaction(async(t)=>{
                 const userId = req.user.id;
@@ -23,14 +24,14 @@ class ProjectCandidateController{
                     transaction: t
                 });
                 if(!translator){
-                    throw new Error("User is not a translator!");
+                    throw createError("User is not a translator!",400);
                 }
                 const existingApplication = await ProjectCandidate.findOne({
                     where: {projectId,translatorId: translator.id},
                     transaction: t
                 });
                 if(existingApplication){
-                    throw new Error("You already a candidate for this project!");
+                    throw createError("You already a candidate for this project!",400);
                 }
                 const application = await ProjectCandidate.create({
                     projectId,
@@ -42,11 +43,10 @@ class ProjectCandidateController{
             });
             res.status(201).json(result);
         }catch(error){
-            console.error(error);
-            res.status(500).json({ error:error.message });
+            next(error);
         }
     }
-    static async createInvitation(req,res){
+    static async createInvitation(req,res,next){
         try{
             const result = await sequelize.transaction(async(t) => {
                 const userId = req.user.id;
@@ -54,21 +54,21 @@ class ProjectCandidateController{
                 const {message,projectId} = req.body;
                 const project = await ProjectCandidateController.getOpenProject(projectId,t);
                 if(project.clientId !== userId){
-                    throw new Error("The project is not yours!");
+                    throw createError("The project is not yours!",400);
                 }
                 const translator = await Translator.findByPk(translatorId,{transaction: t});
                 if(!translator){
-                    throw new Error("Translator not found!");
+                    throw createError("Translator not found!",404);
                 }
                 if(project.translatorId){
-                    throw new Error("Project already have translator!")
+                    throw createError("Project already have translator!",400)
                 }
                 const existingCandidate = await ProjectCandidate.findOne({
                     where: {projectId,translatorId},
                     transaction: t
                 });
                 if(existingCandidate){
-                    throw new Error("Translator is already a candidate!");
+                    throw createError("Translator is already a candidate!",400);
                 }
                 const invitation = await ProjectCandidate.create({
                     projectId,
@@ -81,13 +81,10 @@ class ProjectCandidateController{
             });
             res.status(201).json(result);
         }catch(error){
-            console.error(error);
-            res.status(500).json({
-                error: error.message
-            })
+            next(error)
         }
     }
-    static async getMyProjectCandidate(req,res){
+    static async getMyProjectCandidate(req,res,next){
         try{
             const userId = req.user.id;
             const {projectId} = req.params;
@@ -116,11 +113,10 @@ class ProjectCandidateController{
             });
             res.status(200).json(projectCandidate);
         }catch(error){
-            console.error(error);
-            res.status(500).json(error);
+            next(error);
         }
     }
-    static async getMyInvitations(req,res){
+    static async getMyInvitations(req,res,next){
         try{
             const userId = req.user.id;
             const translator = await Translator.findOne({
@@ -142,9 +138,7 @@ class ProjectCandidateController{
             });
             res.status(200).json(projectInvitation);
         }catch(error){
-            res.status(500).json({
-                error: error.message
-            })
+            next(error);
         }
 
     }
@@ -153,7 +147,7 @@ class ProjectCandidateController{
             const {projectId} = req.params;
             const translator = await Translator.findOne({where: {userId}});
             if(!translator){
-                throw new Error("Translator not found!");
+                throw createError("Translator not found!",404);
             }
             const projectCandidate = await ProjectCandidate.findOne({
                 include:[
@@ -162,30 +156,29 @@ class ProjectCandidateController{
                 where: {projectId,translatorId: translator.id,type: "INVITATION"}
             });
             if(!projectCandidate){
-                throw new Error("Invitation not found!")
+                throw createError("Invitation not found!",404)
             }
             if(projectCandidate.status !== "PENDING"){
-                throw new Error("Invitation is no longer available!");
+                throw createError("Invitation is no longer available!",400);
             }
             projectCandidate.status = action;
             await projectCandidate.save();
             return projectCandidate;
     }
-    static async acceptInvitation(req,res){
+    static async acceptInvitation(req,res,next){
         try{
             const result = await ProjectCandidateController.handleInvitation(req,"ACCEPTED");
             res.status(200).json(result);
         }catch(error){
-            console.error(error);
-            res.status(500).json(error);
+            next(error);
         }
     }
-    static async declineInvitation(req,res){
+    static async declineInvitation(req,res,next){
         try{
             const result = await ProjectCandidateController.handleInvitation(req,"DECLINED");
             res.status(200).json(result);
         }catch(error){
-            res.status(500).json(error);
+            next(error);
         }
     }
 }

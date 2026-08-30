@@ -1,7 +1,7 @@
 const {Payment, Project, User, sequelize} = require('../models');
-
+const createError = require('../utils/createError');
 class PaymentController{
-    static async getPayments(req,res){
+    static async getPayments(req,res,next){
         try{
             const page = parseInt(req.query.page) || 1;
             const limit = parseInt(req.query.limit) || 10;
@@ -34,11 +34,10 @@ class PaymentController{
                 }
             });
         }catch(error){
-            console.error(error);
-            res.status(500).json(error);
+            next(error);
         }
     }
-    static async getPaymentById(req,res){
+    static async getPaymentById(req,res,next){
         try{
             const {id} = req.params;
             const payment = await Payment.findByPk(id,{
@@ -50,10 +49,10 @@ class PaymentController{
             if(!payment) return res.status(404).json({error:`Payment not found!`});
             res.status(200).json(payment);
         }catch(error){
-            res.status(500).json(error);
+            next(error);
         }
     }
-    static async createPayment(req,res){
+    static async createPayment(req,res,next){
         try{
             const {projectId} = req.params;
             const project = await Project.findByPk(projectId);
@@ -75,11 +74,10 @@ class PaymentController{
             });
             res.status(201).json(payment);
         }catch(error){
-            console.error(error);
-            res.status(500).json(error);
+            next(error);
         }
     }
-    static async verifyPayment(req,res){
+    static async verifyPayment(req,res,next){
         try{
             const result = await sequelize.transaction(async(t)=>{
                 const {id} = req.params;
@@ -88,16 +86,16 @@ class PaymentController{
                     transaction:t
                 });
                 if(!payment){
-                    throw new Error("Payment not found!");
+                    throw createError("Payment not found!",404);
                 }
                 if(payment.status !== "PENDING"){
-                    throw new Error("Payment already verified!");
+                    throw createError("Payment already verified!",400);
                 }
                 const project = await Project.findByPk(payment.projectId,{
                     transaction:t
                 });
                 if(!project){
-                    throw new Error("Project not found!");
+                    throw new Error("Project not found!",404);
                 }
                 payment.status = "VERIFIED";
                 payment.verifiedBy = adminId;
@@ -112,10 +110,7 @@ class PaymentController{
             res.status(200).json(result);
 
         }catch(error){
-            console.error(error);
-            res.status(500).json({
-                error:error.message
-            });
+            next(error);
         }
     }
     static async releasePayment(projectId,t){
@@ -124,22 +119,22 @@ class PaymentController{
             transaction: t
         });
         if(!project){
-            throw new Error("Project not found!");
+            throw createError("Project not found!",404);
         }
         if (!project.payment) {
-            throw new Error("Payment not linked to this project!");
+            throw createError("Payment not linked to this project!",400);
         }
         const payment = project.payment;
         if(!payment){
-            throw new Error("Payment not found!");
+            throw createError("Payment not found!",404);
         }
         if(payment.status !== "VERIFIED"){
-            throw new Error("Payment not yet paid!");
+            throw createError("Payment not yet paid!",400);
         }
         payment.status = "RELEASED";
         await payment.save({transaction: t});
     }
-    static async deletePayment(req,res){
+    static async deletePayment(req,res,next){
         try{
             const {id} = req.params;
 
@@ -156,7 +151,7 @@ class PaymentController{
             });
 
         }catch(error){
-            res.status(500).json(error);
+            next(error);
         }
     }
 }

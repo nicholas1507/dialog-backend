@@ -1,6 +1,7 @@
 const router = require('express').Router();
 
 // Import routes
+const errorHandler = require('../middleware/errorHandler');
 const authRoute = require('./auth');
 const userRoute = require('./user');
 const roleRoute = require('./role');
@@ -9,8 +10,8 @@ const languageRoute = require('./language');
 const specializationRoute = require('./specialization');
 const projectRoute = require('./project');
 const projectDocumentRoute = require('./projectDocument');
-const projectCandidateRoute = require('./projectCandidate');
 const paymentRoute = require('./payment');
+
 
 // Dashboard info
 router.get('/', (req, res) => {
@@ -26,6 +27,7 @@ router.use('/specializations', specializationRoute);
 router.use('/projects', projectRoute);
 router.use('/payments', paymentRoute);
 router.use('/project-documents', projectDocumentRoute);
-// router.use('/reviews', reviewRoute);
+
+router.use(errorHandler);
 
 module.exports = router;

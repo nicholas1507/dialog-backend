@@ -3,17 +3,17 @@ const {Profile, User} = require('../models');
 const {cloudinary} = require('../middleware/upload');
 
 class ProfileController{
-    static async getProfiles(req,res){
+    static async getProfiles(req,res,next){
         try{
             const profiles = await Profile.findAll({
                 include: [{model: User, as: "user", attributes: ['id','name','email']}]
             })
             res.status(200).json(profiles);
-        }catch(err){
-            res.status(500).json(err);
+        }catch(error){
+            next(error)
         }
     }
-    static async getProfileById(req,res){
+    static async getProfileById(req,res,next){
         try{
             const id = req.params.id;
             const profile = await Profile.findByPk(id,{
@@ -21,13 +21,11 @@ class ProfileController{
             });
             if(!profile) return res.status(404).json({error: `Profile not found!`});
             res.status(200).json(profile);
-        }catch(err){
-            res.status(500).json({
-                error: `Internal server error!`
-            });
+        }catch(error){
+            next(error)
         }
     }
-    static async createProfile(req,res){
+    static async createProfile(req,res,next){
         try{
             const userId = req.user.id;
             const existing = await Profile.findOne({where: {userId}});
@@ -47,12 +45,11 @@ class ProfileController{
                 imageURL: url
             });
             res.status(201).json(profil);
-        }catch(err){
-            console.error(err);
-            res.status(500).json({error: "Failed to upload",err});
+        }catch(error){
+            next(error)
         }
     }
-    static async getMyProfile(req,res){
+    static async getMyProfile(req,res,next){
         try{
             const userId = req.user.id;
             const myProfil = await Profile.findOne({where: {userId}});
@@ -66,13 +63,11 @@ class ProfileController{
                 imagePublicId: myProfil.imagePublicId,
                 imageURL: myProfil.imageURL
             });
-        }catch(err){
-            res.status(500).json({
-                error: `Internal server error!`
-            });
+        }catch(error){
+            next(error)
         }
     }
-    static async updateProfileByAdmin(req,res){
+    static async updateProfileByAdmin(req,res,next){
         try{
             const id = req.params.id;
             const {address, bio,phone,city,country} = req.body;
@@ -93,13 +88,11 @@ class ProfileController{
                 await cloudinary.uploader.destroy(oldImage);
             }
             res.status(200).json(profil);
-        }catch(err){
-            res.status(500).json({
-                error: `Internal server error!`
-            });
+        }catch(error){
+            next(error)
         }
     }
-    static async updateMyProfil(req,res){
+    static async updateMyProfil(req,res,next){
         try{
             const userId = req.user.id;
             const {address, bio,phone,city,country} = req.body;
@@ -120,14 +113,12 @@ class ProfileController{
                 await cloudinary.uploader.destroy(oldImage);
             }
             res.status(200).json(profil);
-        }catch(err){
-            res.status(500).json({
-                error: `Internal server error!`
-            });
+        }catch(error){
+            next(error)
         }
     }
 
-    static async deleteProfile(req,res){
+    static async deleteProfile(req,res,next){
         try{
             const id = req.params.id;
             const profil = await Profile.findByPk(id);
@@ -138,10 +129,8 @@ class ProfileController{
                 await cloudinary.uploader.destroy(oldImage);
             }
             res.status(200).json(profil);
-        }catch(err){
-            res.status(500).json({
-                error: `Internal server error!`
-            });
+        }catch(error){
+            next(error)
         }
     }
 
