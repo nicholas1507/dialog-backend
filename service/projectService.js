@@ -211,6 +211,18 @@ class ProjectService{
         }
         return project;
     }
+    async cancelProject(id){
+        const project = await this.Project.findByPk(id);
+        if(!project){
+            throw createError("Project not found!",404);
+        }
+        if(project.status !== "WAITING_PAYMENT" && project.status !== "OPEN"){
+            throw createError("Project cannot be cancelled!");
+        }
+        project.status = "CANCELLED";
+        await project.save();
+        return {message: "Project has been successfully cancelled!"}
+    }
 
 }
 

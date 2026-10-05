@@ -167,16 +167,11 @@ class ProjectController{
             next(error);
         }
     }
-    static async deleteProject(req,res,next){
+    static async cancelProject(req,res,next){
         try{
-            const {id} = req.params;
-            const project = await Project.findByPk(id);
-            if(!project) return res.status(404).json({error:`Project not found!`});
-            await project.destroy();
-            res.status(200).json({
-                message:`Project id ${id} successfully deleted!`
-            });
-
+            const id = Number(req.params.id);
+            const result = await projectService.cancelProject(id);
+            res.status(200).json(result);
         }catch(error){
             next(error);
         }
