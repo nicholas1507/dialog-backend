@@ -10,6 +10,8 @@
 //     return [];
 // }
 
+const path = require("node:path");
+
 // let nums = [2,9,8,15];
 // const target = 9;
 
@@ -77,16 +79,18 @@
 // let decimal = 3.1415
 // decimal.toFixed(2)
 // console.log(float(decimal)[2]);
-let kata = "CODING";
-let index = 0;
+// let kata = "CODING";
+// let index = 0;
 
-while(kata){ // No 10
+// while(kata){ // No 10
 
- if(index === kata.length){
-  break;
- } else{
-  console.log(kata[index]);
- } // No 12
+//  if(index === kata.length){
+//   break;
+//  } else{
+//   console.log(kata[index]);
+//  } // No 12
 
- index = index + 1; // No 11
-}
+//  index = index + 1; // No 11
+// }
+const tes = path.dirname(__filename);
+console.log(tes);

@@ -1,58 +1,14 @@
 const {Project, ProjectDocument,User, Language, Specialization, Translator, ProjectCandidate,sequelize} = require('../models');
-const PaymentController = require('../controllers/PaymentController');
-const { Op, where } = require('sequelize');
-const {addDays} = require('../utils/date');
+const { Op } = require('sequelize');
 const {cloudinary} = require('../middleware/upload');
 const createError = require('../utils/createError');
-
+const ProjectService = require('../service/projectService');
+const projectService = new ProjectService({Project, ProjectDocument,User, Language, Specialization, Translator, ProjectCandidate,sequelize})
 class ProjectController{
-    static async fetchProjects(req, clientId = null,translatorId = null){
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 10;
-        const search = req.query.search;
-        const offset = (page - 1) * limit;
-
-        const whereCondition = {}
-        if(search){
-            whereCondition.title = { [Op.iLike]: `%${search}%` }
-        }
-        if(clientId !== null){
-            whereCondition.clientId = clientId
-        }
-        if(translatorId !== null){
-            whereCondition.translatorId = translatorId
-        }
-        const projects = await Project.findAll({
-            where: whereCondition,
-            include:[
-                {model: User, as:'client', attributes:['id','name','email']},
-                {model: Translator, as:'translator'},
-                {model: Language, as:'sourceLanguage', attributes:['id','name']},
-                {model: Language, as:'targetLanguage', attributes:['id','name']},
-                {model: Specialization, as:'specialization', attributes:['id','name']},
-                {model: ProjectDocument, as: "projectDocument"}
-            ],
-            limit,
-            offset
-        });
-
-        const total = await Project.count({
-            where: whereCondition
-        });
-
-        return {
-            data: projects,
-            pagination: {
-                page,
-                limit,
-                totalData: total,
-                totalPage: Math.ceil(total/limit)
-            }
-        };
-    }
     static async getProject(req,res,next){
         try{
-            const result = await ProjectController.fetchProjects(req);
+            const {page,limit,search} = req.query;
+            const result = await projectService.fetchProjects({page,limit,search})
             res.status(200).json(result);
         }catch(error){
             next(error);
@@ -60,45 +16,9 @@ class ProjectController{
     }
     static async getAvailableProjects(req,res,next) {
         try {
-            const page = parseInt(req.query.page) || 1;
-            const limit = parseInt(req.query.limit) || 10;
-            const search = req.query.search;
-            const offset = (page - 1) * limit;
-            const whereCondition = {
-                status: "OPEN",
-                translatorId: null
-            };
-
-            if (search) {
-                whereCondition.title = { [Op.iLike]: `%${search}%` };
-            }
-
-            const projects = await Project.findAll({
-                where: whereCondition,
-                include: [
-                    { model: User, as: 'client', attributes: ['id', 'name', 'email'] },
-                    { model: Language, as: 'sourceLanguage', attributes: ['id', 'name'] },
-                    { model: Language, as: 'targetLanguage', attributes: ['id', 'name'] },
-                    { model: Specialization, as: 'specialization', attributes: ['id', 'name'] }
-                ],
-                limit,
-                offset,
-                order: [['createdAt', 'DESC']]
-            });
-
-            const total = await Project.count({
-                where: whereCondition
-            });
-
-            res.status(200).json({
-                data: projects,
-                pagination: {
-                    page,
-                    limit,
-                    totalData: total,
-                    totalPage: Math.ceil(total / limit)
-                }
-            });
+            const {page,limit,search} = req.query;
+            const result = await projectService.availableProjects({page,limit,search});
+            res.status(200).json(result);
         } catch (error) {
             next(error);
         }
@@ -106,7 +26,8 @@ class ProjectController{
     static async getMyProjects(req,res,next){
         try{
             const clientId = req.user.id;
-            const result = await ProjectController.fetchProjects(req, clientId);
+            const {page,limit,search} = req.query;
+            const result = await projectService.fetchProjects({clientId,page,limit,search});
             res.status(200).json(result);
         }catch(error){
             next(error);
@@ -115,155 +36,55 @@ class ProjectController{
     static async getTranslatorProjects(req,res,next){
         try{
             const userId = req.user.id;
+            const {page,limit,search} = req.query;
             const translator = await Translator.findOne({where: {userId}});
             if(!translator) return res.status(404).json({error: "Translator not found!"});
-            const result = await ProjectController.fetchProjects(req,null,translator.id);
+            const result = await projectService.fetchProjects({translatorId: translator.id,page,limit,search});
             res.status(200).json(result);
         }catch(error){
             next(error);
         }
     }
-
     static async createProject(req,res,next){
         try{
-            const result = await sequelize.transaction(async(t) => {
-                    const clientId = req.user.id;
-                    const {
-                        title,
-                        description,
-                        sourceLanguageId,
-                        targetLanguageId,
-                        wordCount,
-                        specializationId,
-                        budget,
-                        durationDays,
-                        notes
-                    } = req.body;
-                    if(sourceLanguageId === targetLanguageId){
-                        throw createError("Source and target language cannot be the same!",400);
-                    }
-                    const languages = await Language.findAll({where: {id: [sourceLanguageId,targetLanguageId]},transaction:t});
-                    if(languages.length !== 2){
-                        throw createError("Source or target language not found",404);
-                    }
-                    const specialization = await Specialization.findByPk(specializationId,{transaction: t});
-                    if(!specialization){
-                        throw createError("Specialization not found!",404)
-                    }
-                    if(!req.file){
-                        throw createError("No File uploaded",400);
-                    }
-                    const filePublicId = req.file.filename || req.file.public_id;
-                    const fileURL = req.file.path;
-                    const project = await Project.create({
-                        clientId,
-                        title,
-                        description,
-                        sourceLanguageId,
-                        targetLanguageId,
-                        wordCount,
-                        specializationId,
-                        budget,
-                        durationDays,
-                        status:'WAITING_PAYMENT'
-                    },{transaction: t});
-
-                    const projectDocument = await ProjectDocument.create({
-                        projectId: project.id,
-                        uploadedBy: clientId,
-                        type: "SOURCE",
-                        filePublicId: filePublicId,
-                        fileURL: fileURL,
-                        notes: notes
-                    },{transaction: t});
-                return {
-                    project,
-                    projectDocument
-                };
-            });
-            res.status(201).json(result);
+            const clientId = req.user.id;
+            const {
+                title,
+                description,
+                sourceLanguageId,
+                targetLanguageId,
+                wordCount,
+                specializationId,
+                budget,
+                durationDays,
+                notes
+            } = req.body;
+            const fileData = req.file ?{
+                filePublicId: req.file.filename,
+                fileURL: req.file.path
+            } : null;
+            const project = await projectService.createProject({clientId,title,description,sourceLanguageId,targetLanguageId,wordCount,specializationId,budget,durationDays,notes,fileData});
+            res.status(201).json(project);
         }catch(error){
             next(error);
         }
     }
     static async approveCandidate(req,res,next){
-    try{
-        const result = await sequelize.transaction(async(t)=>{
+        try{
             const clientId = req.user.id;
-            const {projectId,candidateId} = req.params
-            const project = await Project.findByPk(projectId,{ transaction:t , lock: t.LOCK.UPDATE});
-            if(!project){
-                throw createError("Project not found!",404);
-            }
-            if(project.clientId !== clientId){
-                throw createError("Unauthorized!",401);
-            }
-            if(project.status !== "OPEN"){
-                throw createError("Project is not open!",400);
-            }
-            const candidate = await ProjectCandidate.findByPk(candidateId,{ transaction:t });
-            if(!candidate){
-                throw createError("Project Candidate not found!",404);
-            }
-            if(candidate.projectId !== Number(projectId)){
-                throw createError("Invalid Project Candidate!",400);
-            }
-            if(candidate.status !== "PENDING" && candidate.status !== "ACCEPTED"){
-                throw createError("Candidate already processed!",400);
-            }
-            if(candidate.type === "APPLICATION"){
-                await ProjectCandidate.update({status: "DECLINED"},
-                    {
-                        where: {projectId,id: {[Op.ne]:candidate.id},type:"APPLICATION",status: "PENDING"},
-                        transaction: t
-                    }
-                )
-            }else if(candidate.type === "INVITATION"){
-                await ProjectCandidate.update({status: "EXPIRED"},
-                    {
-                        where: {projectId,id: {[Op.ne]: candidate.id},type:"INVITATION",status: "PENDING"},
-                        transaction: t
-                    }
-                )
-                await ProjectCandidate.update({status: "DECLINED"},
-                    {
-                        where: {projectId,id: {[Op.ne]:candidate.id},type:"INVITATION",status: "ACCEPTED"},
-                        transaction: t
-                    }
-                )
-            }
-            candidate.status = "CONFIRMED";
-            await candidate.save({ transaction:t });
-            const completionDeadline = addDays(new Date(),project.durationDays)
-            project.completionDeadline = completionDeadline;
-            project.status = "IN_PROGRESS";
-            project.translatorId = candidate.translatorId;
-            await project.save({ transaction:t });
-            return { project, candidate };
-        });
-        res.status(200).json(result);
-    }catch(error){
-        next(error);
-    }
+            const projectId = Number(req.params.projectId);
+            const candidateId = Number(req.params.candidateId);
+            const result = await projectService.approveCandidate({clientId,projectId,candidateId});
+            res.status(200).json(result);
+        }catch(error){
+            next(error);
+        }
     }
     static async approveProject(req,res,next){
         try{
-            const result = await sequelize.transaction(async(t) => {
-                const userId = req.user.id;
-                const {projectId} = req.params;
-                const project = await Project.findByPk(projectId,{transaction: t});
-                if(!project){
-                    throw createError("Project not found!",404);
-                }
-                if(project.status !== "WAITING_REVIEW"){
-                    throw createError("Project cant be approved!",400);
-                }
-                project.status = "COMPLETED";
-                await project.save({transaction: t});
-
-                await PaymentController.releasePayment(project.id,t);
-                return {message: "Project Approved & Payment released!"}
-            });
+            const clientId = req.user.id;
+            const projectId = Number(req.params.projectId);
+            const result = await projectService.approveProject({projectId,clientId});
             res.status(200).json(result);
         }catch(error){
             next(error);
@@ -272,20 +93,8 @@ class ProjectController{
 
     static async getProjectById(req,res,next){
         try{
-            const {id} = req.params;
-            const project = await Project.findByPk(id,{
-                include:[
-                    {model: User, as:'client', attributes:['id','name','email']},
-                    {model: Translator, as:'translator', include: [
-                        {model: User, as: "user", attributes: ["id","name"]}
-                    ]},
-                    {model: Language, as:'sourceLanguage', attributes:['id','name']},
-                    {model: Language, as:'targetLanguage', attributes:['id','name']},
-                    {model: Specialization, as:'specialization', attributes:['id','name']},
-                    {model: ProjectDocument, as: "projectDocument"}
-                ]
-            });
-            if(!project) return res.status(404).json({error:`Project not found!`});
+            const id = Number(req.params.id);
+            const project = await projectService.getProjectById(id);
             res.status(200).json(project);
         }catch(error){
             next(error);
