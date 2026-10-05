@@ -1,38 +1,13 @@
 const {Payment, Project, User, sequelize} = require('../models');
 const createError = require('../utils/createError');
+const PaymentService = require('../service/paymentService');
+const projectService = new PaymentService({Payment,Project,User,sequelize});
 class PaymentController{
     static async getPayments(req,res,next){
         try{
-            const page = parseInt(req.query.page) || 1;
-            const limit = parseInt(req.query.limit) || 10;
-            const search = (req.query.search || "").trim();
-            const offset = (page-1) * limit;
-            const whereCondition = {};
-            if(search){
-                whereCondition.status = {[Op.iLike]: `%${search}%`}
-            }
-            const payments = await Payment.findAll({
-                include:[
-                    {model:Project,as:'project',where: search ? {title:{[Op.iLike]: `%${search}%`}} : undefined},
-                    {model:User,as:'verifier',attributes:['id','name','email']}
-                ],
-                limit,
-                offset
-            });
-            const total = await Payment.count({
-                include:[
-                    {model:Project,as:'project',where: search ? {title:{[Op.iLike]: `%${search}%`}} : undefined}
-                ]
-            });
-            res.status(200).json({
-                data: payments,
-                pagination:{
-                    page,
-                    limit,
-                    totalData: total,
-                    totalPage: Math.ceil(total/limit)
-                }
-            });
+            const {page,limit,search} = req.query;
+            const result = await projectService.getPayments({page,limit,search})
+            res.status(200).json(result);
         }catch(error){
             next(error);
         }
