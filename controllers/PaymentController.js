@@ -1,4 +1,4 @@
-const {Payment, Project, User, sequelize} = require('../models');
+const {Payment, Project, User ,sequelize} = require('../models');
 const createError = require('../utils/createError');
 const PaymentService = require('../service/paymentService');
 const paymentService = new PaymentService({Payment,Project,User,sequelize});
@@ -34,36 +34,10 @@ class PaymentController{
     }
     static async verifyPayment(req,res,next){
         try{
-            const result = await sequelize.transaction(async(t)=>{
-                const {id} = req.params;
-                const adminId = req.user.id;
-                const payment = await Payment.findByPk(id,{
-                    transaction:t
-                });
-                if(!payment){
-                    throw createError("Payment not found!",404);
-                }
-                if(payment.status !== "PENDING"){
-                    throw createError("Payment already verified!",400);
-                }
-                const project = await Project.findByPk(payment.projectId,{
-                    transaction:t
-                });
-                if(!project){
-                    throw new Error("Project not found!",404);
-                }
-                payment.status = "VERIFIED";
-                payment.verifiedBy = adminId;
-                await payment.save({transaction:t});
-                project.status = "OPEN";
-                await project.save({transaction:t});
-                return {
-                    payment,
-                    project
-                };
-            });
+            const id = Number(req.params.id);
+            const adminId = req.user.id;
+            const result = await paymentService.verifyPayment({id,adminId});
             res.status(200).json(result);
-
         }catch(error){
             next(error);
         }

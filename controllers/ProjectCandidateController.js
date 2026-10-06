@@ -1,46 +1,15 @@
 const { Op } = require('sequelize');
 const {User,Role,ProjectCandidate, Project, Translator, sequelize} = require('../models');
 const createError = require('../utils/createError');
-
+const ProjectCandidateService = require('../service/projectCandidateService');
+const projectCandidateService = new ProjectCandidateService({User,ProjectCandidate, Project, Translator, sequelize});
 class ProjectCandidateController{
-    static async getOpenProject(projectId,transaction){
-        const project = await Project.findByPk(projectId,{transaction});
-        if(!project){
-            throw createError("Project not found!",404);
-        }
-        if(project.status !== "OPEN"){
-            throw createError("Project is not Open!",400);
-        }
-        return project;
-    }
     static async createApplication(req,res,next){
         try{
-            const result = await sequelize.transaction(async(t)=>{
-                const userId = req.user.id;
-                const {projectId} = req.params;
-                const project = await ProjectCandidateController.getOpenProject(projectId,t);
-                const translator = await Translator.findOne({
-                    where: {userId},
-                    transaction: t
-                });
-                if(!translator){
-                    throw createError("User is not a translator!",400);
-                }
-                const existingApplication = await ProjectCandidate.findOne({
-                    where: {projectId,translatorId: translator.id},
-                    transaction: t
-                });
-                if(existingApplication){
-                    throw createError("You already a candidate for this project!",400);
-                }
-                const application = await ProjectCandidate.create({
-                    projectId,
-                    translatorId: translator.id,
-                    type: "APPLICATION",
-                    status: "PENDING"
-                },{transaction: t});
-                return application;
-            });
+            const userId = req.user.id;
+            const projectId = Number(req.params.projectId);
+            const {message} = req.body;
+            const result = await projectCandidateService.createApplication({userId,projectId,message});
             res.status(201).json(result);
         }catch(error){
             next(error);
@@ -48,37 +17,10 @@ class ProjectCandidateController{
     }
     static async createInvitation(req,res,next){
         try{
-            const result = await sequelize.transaction(async(t) => {
-                const userId = req.user.id;
-                const {translatorId} = req.params;
-                const {message,projectId} = req.body;
-                const project = await ProjectCandidateController.getOpenProject(projectId,t);
-                if(project.clientId !== userId){
-                    throw createError("The project is not yours!",400);
-                }
-                const translator = await Translator.findByPk(translatorId,{transaction: t});
-                if(!translator){
-                    throw createError("Translator not found!",404);
-                }
-                if(project.translatorId){
-                    throw createError("Project already have translator!",400)
-                }
-                const existingCandidate = await ProjectCandidate.findOne({
-                    where: {projectId,translatorId},
-                    transaction: t
-                });
-                if(existingCandidate){
-                    throw createError("Translator is already a candidate!",400);
-                }
-                const invitation = await ProjectCandidate.create({
-                    projectId,
-                    translatorId,
-                    type: "INVITATION",
-                    status: "PENDING",
-                    message
-                },{transaction: t});
-                return invitation
-            });
+            const userId = req.user.id;
+            const translatorId = Number(req.params.translatorId);
+            const {message,projectId} = req.body;
+            const result = await projectCandidateService.createInvitation({userId,translatorId,message,projectId});
             res.status(201).json(result);
         }catch(error){
             next(error)
@@ -87,31 +29,9 @@ class ProjectCandidateController{
     static async getMyProjectCandidate(req,res,next){
         try{
             const userId = req.user.id;
-            const {projectId} = req.params;
-            const project = await Project.findByPk(projectId);
-            if(!project) return res.status(404).json({error: "Project not found!"});
-            if(project.clientId !== userId){
-                return res.status(400).json({error: "Not your project!"});
-            }
-            const projectCandidate = await ProjectCandidate.findAll({
-                include: [
-                    {
-                        model: Translator, 
-                        as: "translator", 
-                        include: [
-                            { model: User, as: "user", attributes: ["id", "name"] }
-                        ]
-                    }
-                ],
-                where: {
-                    projectId,
-                    [Op.or]: [
-                        { type: 'APPLICATION', status: 'PENDING' },
-                        { type: 'INVITATION', status: 'ACCEPTED' }
-                    ]
-                }
-            });
-            res.status(200).json(projectCandidate);
+            const projectId = Number(req.params.projectId);
+            const result = await projectCandidateService.getMyProjectCandidate({userId,projectId})
+            res.status(200).json(result);
         }catch(error){
             next(error);
         }

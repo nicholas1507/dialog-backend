@@ -170,7 +170,8 @@ class ProjectController{
     static async cancelProject(req,res,next){
         try{
             const id = Number(req.params.id);
-            const result = await projectService.cancelProject(id);
+            const clientId = req.user.id;
+            const result = await projectService.cancelProject(id,clientId);
             res.status(200).json(result);
         }catch(error){
             next(error);

@@ -3,7 +3,7 @@ const createError = require('../utils/createError');
 const {addDays} = require('../utils/date');
 const PaymentService = require('../service/paymentService');
 class ProjectService{
-    constructor({Project,ProjectCandidate,ProjectDocument,User,Language,Specialization,Translator,sequelize}){
+    constructor({Project,ProjectCandidate,ProjectDocument,User,Language,Specialization,Translator,Payment,sequelize}){
         this.Project = Project;
         this.ProjectCandidate = ProjectCandidate;
         this.ProjectDocument = ProjectDocument;
@@ -17,7 +17,7 @@ class ProjectService{
     async fetchProjects({clientId,translatorId,limit,search,page}){
         const pageNum = parseInt(page) || 1;
         const limitNum = parseInt(limit) || 10;
-        const offset = (page - 1) * limit;
+        const offset = (pageNum - 1) * limitNum;
         const whereCondition = {};
         if(search){
             whereCondition.title = {[Op.iLike]: `%${search}%`}
@@ -38,7 +38,7 @@ class ProjectService{
                 {model: this.Specialization, as:'specialization', attributes:['id','name']},
                 {model: this.ProjectDocument, as: "projectDocument"}
             ],
-            limitNum,
+            limit: limitNum,
             offset
         });
         const total = await this.Project.count({
@@ -72,7 +72,8 @@ class ProjectService{
                 { model: this.Language, as: 'targetLanguage', attributes: ['id', 'name'] },
                 { model: this.Specialization, as: 'specialization', attributes: ['id', 'name'] }
             ],
-            limitNum,
+            where: whereCondition,
+            limit: limitNum,
             offset,
             order: [['createdAt', 'DESC']]
         });
@@ -211,13 +212,16 @@ class ProjectService{
         }
         return project;
     }
-    async cancelProject(id){
+    async cancelProject(id,clientId){
         const project = await this.Project.findByPk(id);
         if(!project){
             throw createError("Project not found!",404);
         }
         if(project.status !== "WAITING_PAYMENT" && project.status !== "OPEN"){
             throw createError("Project cannot be cancelled!");
+        }
+        if(project.clientId !== clientId){
+            throw createError("Project can only be cancelled by the owner of the project!",401);
         }
         project.status = "CANCELLED";
         await project.save();

@@ -17,7 +17,7 @@ class PaymentService{
                 {model:this.Project,as:'project',where: search ? {title:{[Op.iLike]: `%${search}%`}} : undefined},
                 {model:this.User,as:'verifier',attributes:['id','name','email']}
             ],
-            limitNum,
+            limit: limitNum,
             offset
         });
         const total = await this.Payment.count({
@@ -75,6 +75,32 @@ class PaymentService{
             status: "PENDING"
         });
         return payment;
+    }
+    async verifyPayment({id,adminId}){
+        return await this.sequelize.transaction(async(t) => {
+            const payment = await this.Payment.findByPk(id,{
+                include: [{model: this.Project, as: "project"}],
+                transaction: t
+            });
+            if(!payment){
+                throw createError("Payment not found!",404);
+            }
+            if(payment.status !== "PENDING"){
+                throw createError("Payment already processed",400);
+            }
+            if(!payment.project){
+                throw createError("Project not found!",404);
+            }
+            if(payment.project.status !== "WAITING_PAYMENT"){
+                throw createError("Project is not in waiting payment status!",400);
+            }
+            payment.status = "VERIFIED";
+            payment.verifiedBy = adminId;
+            await payment.save({transaction: t});
+            payment.project.status = "OPEN";
+            await payment.project.save({transaction: t});
+            return {payment,project:payment.project}
+        })
     }
     async releasePayment({projectId,t}){
         const project = await this.Project.findByPk(projectId,{
