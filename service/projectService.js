@@ -1,7 +1,7 @@
 const { Op } = require('sequelize');
 const createError = require('../utils/createError');
 const {addDays} = require('../utils/date');
-const PaymentController = require('../controllers/PaymentController');
+const PaymentService = require('../service/paymentService');
 class ProjectService{
     constructor({Project,ProjectCandidate,ProjectDocument,User,Language,Specialization,Translator,sequelize}){
         this.Project = Project;
@@ -12,6 +12,7 @@ class ProjectService{
         this.Specialization = Specialization;
         this.Translator = Translator;
         this.sequelize = sequelize;
+        this.paymentService = new PaymentService({Project,Payment,sequelize});
     }
     async fetchProjects({clientId,translatorId,limit,search,page}){
         const pageNum = parseInt(page) || 1;
@@ -188,8 +189,7 @@ class ProjectService{
             }
             project.status = "COMPLETED";
             await project.save({transaction: t});
-
-            await PaymentController.releasePayment(projectId,t);
+            await this.paymentService.releasePayment({projectId,t})
             return {message: "Project approved & Payment released!"}
         })
     }
