@@ -102,5 +102,42 @@ class ProjectCandidateService{
         });
         return projectCandidate;
     }
+    async handleInvitatioService({userId,projectId,action}){
+        const translator = await this.Translator.findOne({where: {userId}});
+        if(!translator){
+            throw createError("Translator not found!",404);
+        }
+        const projectCandidate = await this.ProjectCandidate.findOne({
+            include: [
+                {model:this.Project, as: "project"}
+            ],
+            where: {projectId, type: "INVITATION",translatorId: translator.id},
+        });
+        if(!projectCandidate){
+            throw createError("Project Candidate not found!",404);
+        }
+        if(projectCandidate.status !== "PENDING"){
+            throw createError("Invitation is no longer available!",400);
+        }
+        projectCandidate.status = action;
+        await projectCandidate.save();
+        return projectCandidate;
+    }
+    async getMyInvitations(userId){
+        const translator = await this.Translator.findOne({where: {userId}});
+        if(!translator){
+            throw createError("Translator not found!",404);
+        }
+        const invitations = await this.ProjectCandidate.findAll({
+            include: [
+                {model: this.Project, as: "project", include: [
+                    {model: this.User, as:"client", attributes:["id","name","email"]}
+                ]}
+            ],
+            where: {translatorId: translator.id, type: "INVITATION",status: "PENDING"},
+            order: [["createdAt","DESC"]]
+        });
+        return invitations;
+    }
 }
 module.exports = ProjectCandidateService;
